@@ -1,0 +1,400 @@
+---
+title: "aotus.split.violins"
+author: "Isabel Arcusa"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This file contains code to generate split violin plots for behaviors in response to treatments. The plots show data from the 2021 chemical mate-guarding Aotus experiment. The violin plots can be made in two ways (both are used to demonstrate their utility):    
+1) Show entire male and female distributions side-by-side.  
+2) Split distributions by sex and add bars to show means for each sex's distribution.  
+
+For the purpose of this file, we will be using the second method. This method is inspired by Tung on StackOverflow at https://stackoverflow.com/questions/51228076/ggplot-split-violin-plot-with-horizontal-mean-lines.  
+
+Some plots will show differences in behavior between males and females, and others will show the differences between vasectomized and non-vasectomized males. For all plots, the x-axis is the treatment (female urine, male urine, or saline control) and the y-axis is the scale of the behavior.  
+
+```{r}
+# Install ggplot2 for graphs and dplyr 
+library(ggplot2)
+library(dplyr)
+library(plyr)
+
+# Set working directory
+setwd("~/Desktop/aotus.2024")
+
+# Import raw experiment data
+raw.df<-read.csv("chemical.mateguarding.data.csv", header = TRUE)
+
+# Eliminate columns that are not needed for these models
+# Rename edited data frame as df
+df<-raw.df %>% select(-uw.and.agscratch, -prx.23, -anointing, -chuck, -yawn, -lip.smack, 
+                      -self.groom, -partner.groom)
+
+# Round chirp and urine columns to the nearest whole number and add as a new column
+# We can use mutate() and round() from dplyr() to achieve this
+# Add a rounded chirp column
+df<-df %>%
+  mutate(chirp.rounded = round(df$chirp))
+
+# Add a rounded urine column
+df<-df %>%
+  mutate(urine.rounded = round(df$urine))
+
+# Some values for prx.01 will have to be rounded
+# Add a rounded prx.01 column
+df<-df %>%
+  mutate(prx.01.rounded = round(df$prx.01))
+
+# Verify that the data frame looks as it should
+head(df)
+```
+
+```{r}
+# Define all variables
+name<-df$name
+cage<-df$cage
+sex<-df$sex
+treatment<-df$treatment
+contraceptive.status<-df$contraceptive.status
+arch<-df$arch
+chirp.rounded<-df$chirp.rounded
+urine.rounded<-df$urine.rounded
+subc.sm<-df$subc.sm
+ags<-df$ags
+ud<-df$ud
+atm.mount<-df$atm.mount
+defecate<-df$defecate
+partner.mark<-df$partner.mark
+prx.01.rounded<-df$prx.01.rounded
+```
+
+
+```{r}
+# Remove rows where contraceptive status is "Vasectomized"
+df.none.vas <- df.male %>%
+  filter(df.male$contraceptive.status != "Vasectomized")
+
+# Check to make sure the data frame only has vasectomized entries
+head(df.none.vas)
+
+# Remove rows where contraceptive status is "None"
+df.vas <- df.male %>%
+  filter(df.male$contraceptive.status != "None")
+
+# Check to make sure the data frame only has none entries
+head(df.vas)
+```
+
+The critical function in generating these kinds of split violin plots is called geom_split_violin().  
+
+```{r}
+# Define geom_split_violin()
+# This is the function that splits the distributions in half by whatever you want to compare
+# In our case, it lets us split by sex so we can compare males vs. females
+
+GeomSplitViolin <- ggproto(
+  "GeomSplitViolin",
+  GeomViolin,
+  draw_group = function(self, data, ..., draw_quantiles = NULL) {
+    data <- transform(data,
+                      xminv = x - violinwidth * (x - xmin),
+                      xmaxv = x + violinwidth * (xmax - x)
+    )
+    grp <- data[1, "group"]
+    newdata <- plyr::arrange(
+      transform(data, x = if (grp %% 2 == 1) xminv else xmaxv),
+      if (grp %% 2 == 1) y else -y
+    )
+    newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+    newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+    if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+      stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+      quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+      aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+      aesthetics$alpha <- rep(1, nrow(quantiles))
+      both <- cbind(quantiles, aesthetics)
+      quantile_grob <- GeomPath$draw_panel(both, ...)
+      ggplot2:::ggname(
+        "geom_split_violin",
+        grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob)
+      )
+    } else {
+      ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+    }
+  }
+)
+
+geom_split_violin <- function(mapping = NULL,
+                              data = NULL,
+                              stat = "ydensity",
+                              position = "identity", ...,
+                              draw_quantiles = NULL,
+                              trim = TRUE,
+                              scale = "area",
+                              na.rm = FALSE,
+                              show.legend = NA,
+                              inherit.aes = TRUE) {
+  layer(
+    data = data,
+    mapping = mapping,
+    stat = stat,
+    geom = GeomSplitViolin,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list(
+      trim = trim,
+      scale = scale,
+      draw_quantiles = draw_quantiles,
+      na.rm = na.rm, ...
+    )
+  )
+}
+```
+
+Now that we've written geom_split_violin(), we can use it to make split violin plots.  
+
+*Arch*  
+```{r}
+# ggplot(data frame, aes(x variable, y variable, fill = as.factor(splitting category)))
+
+arch.plot<-ggplot(df, aes(treatment, arch, fill = as.factor(sex))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Arch (intervals/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#FF6A6A", "#87CEFA"),
+    name = "Sex",
+    breaks = c("Female", "Male"),
+    labels = c("Female", "Male")
+  )
+arch.plot
+```
+
+```{r}
+# Arch plot comparing vasectomized and non-vasectomized male arching
+vas.arch.plot<-ggplot(df.male, aes(treatment, arch, fill = as.factor(contraceptive.status))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Arch (intervals/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#ffffff", "#a6a6a6"),
+    name = "Focal Male Status",
+    breaks = c("Vasectomized", "None"),
+    labels = c("Vasectomized", "None")
+  )
+vas.arch.plot
+```
+
+*Chirp*  
+```{r}
+chirp.plot<-ggplot(df, aes(treatment, chirp.rounded, fill = as.factor(sex))) +
+  geom_split_violin(trim = TRUE) +
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Chirp (intervals/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  scale_fill_manual(
+    values = c("#FF6A6A", "#87CEFA"),
+    name = "Sex",
+    breaks = c("Female", "Male"),
+    labels = c("Female", "Male")
+  )
+chirp.plot
+```
+
+```{r}
+# Chirp plot comparing vasectomized and non-vasectomized male arching
+vas.chirp.plot<-ggplot(df.male, aes(treatment, chirp.rounded, fill = as.factor(contraceptive.status))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Chirp (intervals/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#ffffff", "#a6a6a6"),
+    name = "Contraceptive Status",
+    breaks = c("Vasectomized", "None"),
+    labels = c("Vasectomized", "None")
+  )
+vas.chirp.plot
+```
+
+*Urine*  
+```{r}
+urine.plot<-ggplot(df, aes(treatment, urine.rounded, fill = as.factor(sex))) +
+  geom_split_violin(trim = TRUE) +
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Urine (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  scale_fill_manual(
+    values = c("#FF6A6A", "#87CEFA"),
+    name = "Sex",
+    breaks = c("Female", "Male"),
+    labels = c("Female", "Male")
+  )
+urine.plot
+```
+
+```{r}
+# Urine plot comparing vasectomized and non-vasectomized male arching
+vas.urinate.plot<-ggplot(df.male, aes(treatment, urine.rounded, fill = as.factor(contraceptive.status))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Urinate (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#ffffff", "#a6a6a6"),
+    name = "Focal Male Status",
+    breaks = c("Vasectomized", "None"),
+    labels = c("Vasectomized", "None")
+  )
+vas.urinate.plot
+```
+
+*Subcaudal scent mark*  
+```{r}
+subcsm.plot<-ggplot(df, aes(treatment, subc.sm, fill = as.factor(sex))) +
+  geom_split_violin(trim = TRUE) +
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Subcaudal scent mark (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  scale_fill_manual(
+    values = c("#FF6A6A", "#87CEFA"),
+    name = "Sex",
+    breaks = c("Female", "Male"),
+    labels = c("Female", "Male")
+  )
+subcsm.plot
+```
+
+```{r}
+# Subc.sm plot comparing vasectomized and non-vasectomized male arching
+vas.subcsm.plot<-ggplot(df.male, aes(treatment, subc.sm, fill = as.factor(contraceptive.status))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Subcaudal scent mark (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#ffffff", "#a6a6a6"),
+    name = "Focal Male Status",
+    breaks = c("Vasectomized", "None"),
+    labels = c("Vasectomized", "None")
+  )
+vas.subcsm.plot
+```
+
+*Defecate*  
+```{r}
+defecate.plot<-ggplot(df, aes(treatment, defecate, fill = as.factor(sex))) +
+  geom_split_violin(trim = TRUE) +
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Defecate (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  scale_fill_manual(
+    values = c("#FF6A6A", "#87CEFA"),
+    name = "Sex",
+    breaks = c("Female", "Male"),
+    labels = c("Female", "Male")
+  )
+defecate.plot
+```
+
+```{r}
+# Defecate plot comparing vasectomized and non-vasectomized male arching
+vas.defecate.plot<-ggplot(df.male, aes(treatment, defecate, fill = as.factor(contraceptive.status))) +
+  geom_split_violin(trim = TRUE) +
+  # stat_summary() lets us display a descriptive statistic on a distribution
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = 0.25,
+               position = position_dodge(width = .25),
+  ) +
+  labs(x = "Treatment", y = "Defecate (times/trial)") +
+  theme_classic() +
+  theme(text = element_text(size = 20)) +
+  # scale_x_discrete is our different treatments or categories
+  scale_x_discrete(labels = c("0" = "Female_Urine", "1" = "Male_Urine", "2" = "Saline_Control")) +
+  # scale_fill_manual is how we actually split the data
+  scale_fill_manual(
+    values = c("#ffffff", "#a6a6a6"),
+    name = "Focal Male Status",
+    breaks = c("Vasectomized", "None"),
+    labels = c("Vasectomized", "None")
+  )
+vas.defecate.plot
+```
+
