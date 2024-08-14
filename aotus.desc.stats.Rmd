@@ -1,0 +1,355 @@
+---
+title: "aotus.desc.stats"
+author: "Isabel Arcusa"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this file is to calculate descriptive statistics on response behaviors measured in the Aotus 2021 experiment.  
+
+We will be calculating the median and range for each response behavior: arch, subcaudal scent marking, anogenital sniffing, urine drinking, close proximity, Hinde's index, attempts to mate/mount, and defecating.    
+
+```{r}
+# Install dplyr 
+library(dplyr)
+
+# Set working directory
+setwd("~/Desktop/aotus.fsc.repo")
+
+# Import raw experiment data
+raw.df<-read.csv("chemical.mateguarding.data.csv", header = TRUE)
+
+# Eliminate columns that are not needed for these models
+# Rename edited data frame as df
+df<-raw.df %>% select(-uw.and.agscratch, -prx.23, -anointing, -chuck, -yawn, -lip.smack, 
+                      -self.groom, -partner.groom)
+
+# Round chirp and urine columns to the nearest whole number and add as a new column
+# We can use mutate() and round() from dplyr() to achieve this
+# Add a rounded chirp column
+df<-df %>%
+  mutate(chirp.rounded = round(df$chirp))
+
+# Add a rounded urine column
+df<-df %>%
+  mutate(urine.rounded = round(df$urine))
+
+# Some values for prx.01 will have to be rounded
+# Add a rounded prx.01 column
+df<-df %>%
+  mutate(prx.01.rounded = round(df$prx.01))
+
+# Verify that the data frame looks as it should
+head(df)
+```
+
+Separate sexes.  
+```{r}
+# Remove rows where sex is "Male"
+df.female <- df %>%
+  filter(df$sex != "Male")
+
+# Check to make sure the data frame only has female entries
+head(df.female)
+
+# Remove rows where sex is "Female"
+df.male <- df %>%
+  filter(df$sex != "Female")
+
+# Check to make sure the data frame only has male entries
+head(df.male)
+```
+
+Separate males by whether they are vasectomized or not.  
+```{r}
+# Remove rows where contraceptive status is "Vasectomized"
+df.none.vas <- df.male %>%
+  filter(df.male$contraceptive.status != "Vasectomized")
+
+# Check to make sure the data frame only has vasectomized entries
+head(df.none.vas)
+
+# Remove rows where contraceptive status is "None"
+df.vas <- df.male %>%
+  filter(df.male$contraceptive.status != "None")
+
+# Check to make sure the data frame only has none entries
+head(df.vas)
+```
+
+*Arch*  
+```{r}
+# Male median
+median(df.male$arch)
+
+# Male range
+range(df.male$arch)
+
+# Female median
+median(df.female$arch)
+
+# Female range
+range(df.female$arch)
+
+# Male vas median
+median(df.vas$arch)
+
+# Male vas range
+range(df.vas$arch)
+
+# Male non.vas median
+median(df.none.vas$arch)
+
+# Male non.vas range
+range(df.none.vas$arch)
+```
+
+*Chirp*  
+```{r}
+# Male median
+median(df.male$chirp.rounded)
+
+# Male range
+range(df.male$chirp.rounded)
+
+# Female median
+median(df.female$chirp.rounded)
+
+# Female range
+range(df.female$chirp.rounded)
+
+# Male vas median
+median(df.vas$chirp.rounded)
+
+# Male vas range
+range(df.vas$chirp.rounded)
+
+# Male non.vas median
+median(df.none.vas$chirp.rounded)
+
+# Male non.vas range
+range(df.none.vas$chirp.rounded)
+```
+
+*Urine*  
+```{r}
+# Male median
+median(df.male$urine.rounded)
+
+# Male range
+range(df.male$urine.rounded)
+
+# Female median
+median(df.female$urine.rounded)
+
+# Female range
+range(df.female$urine.rounded)
+
+# Male vas median
+median(df.vas$urine.rounded)
+
+# Male vas range
+range(df.vas$urine.rounded)
+
+# Male non.vas median
+median(df.none.vas$urine.rounded)
+
+# Male non.vas range
+range(df.none.vas$urine.rounded)
+```
+
+```{r}
+# Median urinate counts for females
+female.median.urine.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(median.urine.count = median(urine.rounded))
+
+# Print the result
+print(female.median.urine.counts)
+
+# Range urinate counts for females
+female.range.urine.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(range.urine.count = range(urine.rounded))
+
+# Print the result
+print(female.range.urine.counts)
+
+# Median urinate counts for males
+male.median.urine.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(median.urine.count = median(urine.rounded))
+
+# Print the result
+print(male.median.urine.counts)
+
+# Range urinate counts for females
+male.range.urine.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(range.urine.count = range(urine.rounded))
+
+# Print the result
+print(male.range.urine.counts)
+```
+
+*Defecate*  
+```{r}
+# Male median
+median(df.male$defecate)
+
+# Male range
+range(df.male$defecate)
+
+# Female median
+median(df.female$defecate)
+
+# Female range
+range(df.female$defecate)
+
+# Male vas median
+median(df.vas$defecate)
+
+# Male vas range
+range(df.vas$defecate)
+
+# Male non.vas median
+median(df.none.vas$defecate)
+
+# Male non.vas range
+range(df.none.vas$defecate)
+```
+
+*Subcaudal scent mark*  
+```{r}
+# Male median
+median(df.male$subc.sm)
+
+# Male range
+range(df.male$subc.sm)
+
+# Female median
+median(df.female$subc.sm)
+
+# Female range
+range(df.female$subc.sm)
+
+# Male vas median
+median(df.vas$subc.sm)
+
+# Male vas range
+range(df.vas$subc.sm)
+
+# Male non.vas median
+median(df.none.vas$subc.sm)
+
+# Male non.vas range
+range(df.none.vas$subc.sm)
+```
+
+```{r}
+# Median subc.sm counts for females
+female.median.subc.sm.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(median.subc.sm.count = median(subc.sm))
+
+# Print the result
+print(female.median.subc.sm.counts)
+
+# Range subc.sm counts for females
+female.range.subc.sm.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(range.subc.sm.count = range(subc.sm))
+
+# Print the result
+print(female.range.subc.sm.counts)
+
+# Median subc.sm counts for males
+male.median.subc.sm.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(median.subc.sm.count = median(subc.sm))
+
+# Print the result
+print(male.median.subc.sm.counts)
+
+# Range subc.sm counts for females
+male.range.subc.sm.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(range.subc.sm.count = range(subc.sm))
+
+# Print the result
+print(male.range.subc.sm.counts)
+```
+
+*Hinde's Index*  
+```{r}
+# Median hindes.index counts for females
+female.median.hindes.index.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(median.hindes.index.count = median(hindes.index))
+
+# Print the result
+print(female.median.hindes.index.counts)
+
+# Range hindes.index counts for females
+female.range.hindes.index.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(range.hindes.index.count = range(hindes.index))
+
+# Print the result
+print(female.range.hindes.index.counts)
+
+# Median hindes.index counts for males
+male.median.hindes.index.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(median.hindes.index.count = median(hindes.index))
+
+# Print the result
+print(male.median.hindes.index.counts)
+
+# Range hindes.index counts for females
+male.range.hindes.index.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(range.hindes.index.count = range(hindes.index))
+
+# Print the result
+print(male.range.hindes.index.counts)
+```
+
+*Close proximity*  
+```{r}
+# Median prx.01 counts for females
+female.median.prx.01.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(median.prx.01.count = median(prx.01))
+
+# Print the result
+print(female.median.prx.01.counts)
+
+# Range prx.01 counts for females
+female.range.prx.01.counts <- df.female %>%
+  group_by(treatment) %>%
+  summarize(range.prx.01.count = range(prx.01))
+
+# Print the result
+print(female.range.prx.01.counts)
+
+# Median prx.01 counts for males
+male.median.prx.01.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(median.prx.01.count = median(prx.01))
+
+# Print the result
+print(male.median.prx.01.counts)
+
+# Range prx.01 counts for females
+male.range.prx.01.counts <- df.male %>%
+  group_by(treatment) %>%
+  summarize(range.prx.01.count = range(prx.01))
+
+# Print the result
+print(male.range.prx.01.counts)
+```
