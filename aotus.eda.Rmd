@@ -1,0 +1,471 @@
+---
+title: "aotus.eda"
+author: "Isabel Arcusa"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this file is to explore potential distributions for response behaviors measured in the Aotus 2021 experiment. The approach taken here is rooted in general practices of exploratory data analysis, or EDA. EDA for each behavior will be done in the following steps:  
+
+1) Histogram. Histograms reveal the frequency distribution of data. 
+2) Q-Q plot. Q-Q plots compare the distribution of data to a known distribution.  
+3) Shapiro-Wilk test. This is a test of normality. The null hypothesis of the Shapiro-Wilk test is that the data are normally distributed. When the p-value is greater than 0.05, we fail to reject the null hypothesis (data is normally distributed). When the p-value is less than 0.05, we have evidence suggesting that the data are not normally distributed.  
+4) Goodness of fit tests. Using fitdistr(), we can try different distributions and compare AIC's to find the best fit.  
+ 
+**Import data and packages**  
+```{r}
+# Import packages
+library(dplyr)      # dplyr for data manipulation
+library(ggplot2)    # ggplot2 for data visualization
+library(fitdistrplus) # for fitting distributions
+
+# Set working directory
+setwd("~/Desktop/aotus.2024")
+
+# Import raw experiment data
+raw.df<-read.csv("chemical.mateguarding.data.csv", header = TRUE)
+
+# Eliminate columns that are not needed for these models
+# Rename edited data frame as df
+df<-raw.df %>% select(-uw.and.agscratch, -prx.23, -anointing, -chuck, -yawn, -lip.smack, 
+                      -self.groom, -partner.groom)
+
+# Round chirp and urine columns to the nearest whole number and add as a new column
+# We can use mutate() and round() from dplyr() to achieve this
+# Add a rounded chirp column
+df<-df %>%
+  mutate(chirp.rounded = round(df$chirp))
+
+# Add a rounded urine column
+df<-df %>%
+  mutate(urine.rounded = round(df$urine))
+
+# Verify that the data frame looks as it should
+head(df)
+```
+
+**Arch**  
+```{r}
+# Step 1. Histogram the data
+hist(df$arch)
+```
+The counts for arching are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+arch<-df$arch
+ggplot(df, aes(sample = arch)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Arch against Normal Distribution", x = "Theoretical Quantiles", y = "Arch Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for arch shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(arch)
+```
+The results of the Shapiro-Wilk test further suggest that the arch data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(arch, "norm")
+fit.pois<-fitdist(arch, "pois")
+fit.neg.binom<-fitdist(arch, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the arch data is best described by a negative binomial distribution.  
+
+**Chirp**  
+```{r}
+# Step 1. Histogram the data
+hist(df$chirp.rounded)
+```
+The counts for chirping are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+chirp.rounded<-df$chirp.rounded
+ggplot(df, aes(sample = chirp.rounded)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Chirp against Normal Distribution", x = "Theoretical Quantiles", y = "Chirp Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for chirping shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(chirp.rounded)
+```
+The results of the Shapiro-Wilk test further suggest that the chirp data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(chirp.rounded, "norm")
+fit.pois<-fitdist(chirp.rounded, "pois")
+fit.neg.binom<-fitdist(chirp.rounded, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the chirp data is best described by a negative binomial distribution.  
+
+**Urine**  
+```{r}
+# Step 1. Histogram the data
+hist(df$urine.rounded)
+```
+The counts for urinating are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+urine.rounded<-df$urine.rounded
+ggplot(df, aes(sample = urine.rounded)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Urine against Normal Distribution", x = "Theoretical Quantiles", y = "Urine Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for urinating shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(urine.rounded)
+```
+The results of the Shapiro-Wilk test further suggest that the urine data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(urine.rounded, "norm")
+fit.pois<-fitdist(urine.rounded, "pois")
+fit.neg.binom<-fitdist(urine.rounded, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the urine data is best described by a negative binomial distribution.  
+
+**Subcaudal Scent Mark**  
+```{r}
+# Step 1. Histogram the data
+hist(df$subc.sm)
+```
+The counts for subcaudal scent marking are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+subc.sm<-df$subc.sm
+ggplot(df, aes(sample = subc.sm)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Subc.SM against Normal Distribution", x = "Theoretical Quantiles", y = "Subc.SM Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for subcaudal scent marking shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(subc.sm)
+```
+The results of the Shapiro-Wilk test further suggest that the subcaudal scent marking data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(subc.sm, "norm")
+fit.pois<-fitdist(subc.sm, "pois")
+fit.neg.binom<-fitdist(subc.sm, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the subcaudal scent marking data is best described by a negative binomial distribution.  
+
+**Anogenital Sniff**  
+```{r}
+# Step 1. Histogram the data
+hist(df$ags)
+```
+The counts for ags are positively (right) skewed. 
+
+```{r}
+# Step 2. Make a Q-Q plot 
+ags<-df$ags
+ggplot(df, aes(sample = ags)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of AGS against Normal Distribution", x = "Theoretical Quantiles", y = "AGS Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for ags shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(ags)
+```
+The results of the Shapiro-Wilk test further suggest that the ags data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(ags, "norm")
+fit.pois<-fitdist(ags, "pois")
+fit.neg.binom<-fitdist(ags, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the anogenital sniffing data is best described by a negative binomial distribution.  
+
+**Urine drink**  
+```{r}
+# Step 1. Histogram the data
+hist(df$ud)
+```
+The counts for urine drinking are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+ud<-df$ud
+ggplot(df, aes(sample = ud)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of UD against Normal Distribution", x = "Theoretical Quantiles", y = "UD Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for urine shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(ud)
+```
+The results of the Shapiro-Wilk test further suggest that the urine drinking data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(ud, "norm")
+fit.pois<-fitdist(ud, "pois")
+fit.neg.binom<-fitdist(ud, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the urine drinking data is best described by a negative binomial distribution.  
+
+**Mount attempt**  
+```{r}
+# Step 1. Histogram the data
+hist(df$atm.mount)
+```
+The counts for atm/mount are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+atm.mount<-df$atm.mount
+ggplot(df, aes(sample = atm.mount)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of ATM/mount against Normal Distribution", x = "Theoretical Quantiles", y = "ATM/mount Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for attempt to mate/mount shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(atm.mount)
+```
+The results of the Shapiro-Wilk test further suggest that the ATM/mount data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(atm.mount, "norm")
+fit.pois<-fitdist(atm.mount, "pois")
+fit.neg.binom<-fitdist(atm.mount, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the attempt to mate/mount data is best described by a negative binomial distribution.  
+
+**Defecate**  
+```{r}
+# Step 1. Histogram the data
+hist(df$defecate)
+```
+The counts for defecate are positively (right) skewed.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+defecate<-df$defecate
+ggplot(df, aes(sample = defecate)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Defecate against Normal Distribution", x = "Theoretical Quantiles", y = "Defecate Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for defecate shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(defecate)
+```
+The results of the Shapiro-Wilk test further suggest that the defecate data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(defecate, "norm")
+fit.pois<-fitdist(defecate, "pois")
+fit.neg.binom<-fitdist(defecate, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a negative binomial or Poisson distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the defecate data is best described by a Poisson distribution or a negative binomial distribution.  
+
+**Partner mark**  
+```{r}
+# Step 1. Histogram the data
+hist(df$partner.mark)
+```
+The counts for partner mark are bimodal.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+partner.mark<-df$partner.mark
+ggplot(df, aes(sample = partner.mark)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Partner Mark against Normal Distribution", x = "Theoretical Quantiles", y = "Partner Mark Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for partner marking shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(partner.mark)
+```
+The results of the Shapiro-Wilk test further suggest that the partner mark data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(partner.mark, "norm")
+fit.pois<-fitdist(partner.mark, "pois")
+fit.neg.binom<-fitdist(partner.mark, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The data fits better with a Poisson distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the defecate data is best described by a Poisson distribution.  
+
+**Close proximity**  
+```{r}
+# To fit distributions for prx.01 and hindes.index, we need to remove duplicates
+# Remove rows where gender is "Male"
+df.halved <- df %>%
+  filter(df$sex != "Male")
+
+# Check to make sure the data frame only has female entries
+head(df.halved)
+```
+
+```{r}
+# Step 1. Histogram the data
+hist(df.halved$prx.01)
+```
+The counts for close proximity look as though they could be approximately normal.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+prx.01<-df.halved$prx.01
+ggplot(df.halved, aes(sample = prx.01)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Close Proximity against Normal Distribution", x = "Theoretical Quantiles", y = "Close Proximity Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for close proximity shows that the data does not align with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(prx.01)
+```
+The results of the Shapiro-Wilk test further suggest that the close proximity data does not have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(prx.01, "norm")
+fit.gamma<-fitdist(prx.01, "gamma")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.gamma$aic
+```
+The data fits better with a gamma distribution, as indicated by the lower AIC value relative to the normal-fitted data. Therefore, we can say that the close proximity data is best described by a gamma distribution.  
+
+**Hinde's Index**  
+```{r}
+# Step 1. Histogram the data
+hist(df.halved$hindes.index)
+```
+The counts for Hinde's index look as though they could be approximately normal.  
+
+```{r}
+# Step 2. Make a Q-Q plot 
+hindes.index<-df.halved$hindes.index
+ggplot(df.halved, aes(sample = hindes.index)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Hinde's Index against Normal Distribution", x = "Theoretical Quantiles", y = "Hinde's Index Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot for close proximity shows that the data mostly aligns with a normal distribution.  
+
+```{r}
+# Step 3. Shapiro-Wilk test of normality
+shapiro.test(hindes.index)
+```
+The results of the Shapiro-Wilk test suggest that the Hinde's index data could have a normal distribution.  
+
+```{r}
+# Step 4. Statistical tests
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(hindes.index, "norm")
+
+# Compare AIC values of different models
+fit.norm$aic
+```
+The data seems to fit with a normal distribution. Therefore, we can say that the Hinde's index data is best described by a normal distribution.  
