@@ -1,0 +1,593 @@
+---
+title: "aotus.glmms"
+author: "Isabel Arcusa"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this script is to generate generalized linear mixed models (GLMM's) for response behaviors observed in the Aotus 2021 experiment. The models will be run using glmmTMB().  
+
+The code written here will use glmmTMB() to generate GLMM's for ten response behaviors (arch, subcaudal scent marking, anogenital sniffing, urine drinking, close proximity, Hinde's index, attempts to mate/mount, and defecating) in four parts:  
+1) Discuss justification for using glmmTMB()     
+2) Import packages and data  
+3) Prepare data frames required for models
+4) Make models
+
+**Part 1: Using glmmTMB()**  
+The decision to use glmmTMB() was made from the following points:  
+A) Some of the response behaviors we are interested in modeling are zero-inflated and/or beta-distributed.  
+B) In the first round of GLMM's, many of the models made with glmer() struggled to converge. The warnings produced with those models' outcomes suggest that the models were either overfit with too many random effects or that the data's distribution is not best modeled by glmer().  
+C) Another recent study by Miaretsoa et al. with similar statistical analyses uses glmmTMB().  
+D) Results from glmmTMB() can be used in model averaging, which is helpful when looking for the best fitting models.  
+
+**Part 2: Import packages and data**  
+```{r}
+# Import packages
+library(dplyr)      # dplyr for data manipulation
+library(ggplot2)    # ggplot2 for data visualization
+library(glmmTMB)    # glmmTMB for generating mixed effect linear models 
+```
+
+```{r}
+# Set working directory
+setwd("~/Desktop/aotus.2024")
+
+# Import raw experiment data
+raw.df<-read.csv("chemical.mateguarding.data.csv", header = TRUE)
+
+# Eliminate columns that are not needed for these models
+# Rename edited data frame as df
+df<-raw.df %>% select(-uw.and.agscratch, -prx.23, -anointing, -chuck, -yawn, -lip.smack, 
+                      -self.groom, -partner.groom)
+
+# Round chirp and urine columns to the nearest whole number and add as a new column
+# We can use mutate() and round() from dplyr() to achieve this
+# Add a rounded chirp column
+df<-df %>%
+  mutate(chirp.rounded = round(df$chirp))
+
+# Add a rounded urine column
+df<-df %>%
+  mutate(urine.rounded = round(df$urine))
+
+# Some values for prx.01 will have to be rounded
+# Add a rounded prx.01 column
+df<-df %>%
+  mutate(prx.01.rounded = round(df$prx.01))
+
+# Verify that the data frame looks as it should
+head(df)
+```
+
+**Part 3: Prepare data frames**  
+Since we know through observation that males and females display some behaviors at different rates, we can further refine some models by taking out sex as a factor. We can achieve this by creating two separate data frames: one for males and one for females. We can then run two separate models to determine the effect of treatment on urination for each sex. This will also allow us to examine the effect of contraceptive status in each sex without running into issues of "None" entries applying to both males and females.    
+
+```{r}
+# Remove rows where sex is "Male"
+df.female <- df %>%
+  filter(df$sex != "Male")
+
+# Check to make sure the data frame only has female entries
+head(df.female)
+
+# Remove rows where sex is "Female"
+df.male <- df %>%
+  filter(df$sex != "Female")
+
+# Check to make sure the data frame only has male entries
+head(df.male)
+```
+
+**Part 4: Make models**  
+```{r}
+# Define all variables
+name<-df$name
+cage<-df$cage
+sex<-df$sex
+treatment<-df$treatment
+contraceptive.status<-df$contraceptive.status
+arch<-df$arch
+chirp.rounded<-df$chirp.rounded
+urine.rounded<-df$urine.rounded
+subc.sm<-df$subc.sm
+ags<-df$ags
+ud<-df$ud
+atm.mount<-df$atm.mount
+defecate<-df$defecate
+prx.01.rounded<-df$prx.01.rounded
+hindes.index<-df$hindes.index
+```
+
+```{r}
+# To ensure that the model output compares the significance of treatment to the
+# control, we have to specify the reference category
+df$treatment <- factor(df$treatment, levels = c("Saline.Control", "Female.Urine", "Male.Urine"))
+df$treatment <- relevel(df$treatment, ref = "Saline.Control")
+
+df$contraceptive.status <- factor(df$contraceptive.status, levels = c("Contraception", "None", "Vasectomized"))
+df$contraceptive.status <- relevel(df$contraceptive.status, ref = "None")
+```
+
+Many of our response behaviors are negative binomial-distributed response variables that can be zero. Therefore the family argument should be set to negative binomial (see https://glmmtmb.github.io/glmmTMB/articles/glmmTMB.html for more info). Defining the family argument as negative binomial comes with two options: nbinom1 or nbinom2 with a log link. nbinom1 is better for when the mean and variance have a linear relationship. nbinom2 is better for when variance is a quadratic function of the mean. To determine the best fit, both versions will be used. Then, the AIC values from both models will be compared.  
+
+**Arch**  
+```{r}
+# Make the models using glmmTMB package
+# name and cage are random effects
+# sex, treatment, and contraceptive.status are fixed effects
+
+# nbinom1
+arch.model.1<-glmmTMB(arch ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(arch.model.1)
+
+# nbinom2
+arch.model.2<-glmmTMB(arch ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(arch.model.2)
+
+# Compare AIC's from arch.model.1 and arch.model.2
+AIC(arch.model.1, arch.model.2)
+```
+arch.model.1 has a slightly lower AIC, and thus is the better fitting model.  
+
+*Male Arch*  
+```{r}
+# Run model including contraceptive.status as a fixed effect
+male.arch.model.1<-glmmTMB(arch ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.arch.model.1)
+
+# We have an issue with model convergence as evidenced by the NA values
+# Remove random effects one at a time
+male.arch.model.2<-glmmTMB(arch ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.arch.model.2)
+
+# Remove name
+male.arch.model.3<-glmmTMB(arch ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.arch.model.3)
+```
+
+*Female Arch*  
+```{r}
+# Run model including contraceptive.status as a fixed effect
+female.arch.model<-glmmTMB(arch ~ treatment, data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.arch.model)
+```
+ 
+**Chirp**  
+```{r}
+# chirp.rounded is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+chirp.model.1<-glmmTMB(chirp.rounded ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(chirp.model.1)
+
+# nbinom2
+chirp.model.2<-glmmTMB(chirp.rounded ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(chirp.model.2)
+
+# Compare AIC's from chirp.model.1 and chirp.model.2
+AIC(chirp.model.1, chirp.model.2)
+```
+
+*Male Chirp*  
+```{r}
+# Run model including contraceptive.status as a fixed effect
+male.chirp.model<-glmmTMB(chirp.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.chirp.model)
+```
+
+*Female Chirp*  
+```{r}
+# Run model including contraceptive.status as a fixed effect
+female.chirp.model<-glmmTMB(chirp.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.chirp.model)
+```
+
+**Urine**  
+```{r}
+# urine.rounded is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+urine.model.1<-glmmTMB(urine.rounded ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(urine.model.1)
+
+# nbinom2
+urine.model.2<-glmmTMB(urine.rounded ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(urine.model.2)
+
+# Compare AIC's from urine.model.1 and urine.model.2
+AIC(urine.model.1, urine.model.2)
+```
+
+*Male Urine*  
+```{r}
+# Male only urine model
+male.urine.model<-glmmTMB(urine.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.urine.model)
+```
+
+*Female Urine*  
+```{r}
+# Female only urine model
+female.urine.model.1<-glmmTMB(urine.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.urine.model.1)
+
+# Remove cage
+female.urine.model.2<-glmmTMB(urine.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.urine.model.2)
+
+# Remove name
+female.urine.model.3<-glmmTMB(urine.rounded ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.urine.model.3)
+```
+
+**Subcaudal Scent Mark**  
+```{r}
+# subc.sm is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+subc.sm.model.1<-glmmTMB(subc.sm ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(subc.sm.model.1)
+
+# nbinom2
+subc.sm.model.2<-glmmTMB(subc.sm ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(subc.sm.model.2)
+
+# Compare AIC's from subc.sm.model.1 and subc.sm.model.2
+AIC(subc.sm.model.1, subc.sm.model.2)
+```
+subc.sm.model.2 has a lower AIC, and thus is the better fitting model.  
+
+*Male Scent mark*  
+```{r}
+# Male only subc.sm model
+male.subcsm.model<-glmmTMB(subc.sm ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.subcsm.model)
+```
+
+*Female Scent mark*  
+```{r}
+# Female only subc.sm model
+female.subcsm.model.1<-glmmTMB(subc.sm ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.subcsm.model.1)
+
+# Remove cage
+female.subcsm.model.2<-glmmTMB(subc.sm ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.subcsm.model.2)
+```
+
+**Anogenital Sniff**  
+```{r}
+# ags is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+ags.model.1<-glmmTMB(ags ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ags.model.1)
+
+# nbinom2
+ags.model.2<-glmmTMB(ags ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(ags.model.2)
+
+# There is an issue with model convergence with the above models
+# The most likely reason is that there is some issue with the variables
+# Either there are too many variables or some collinearity
+# To solve this, let's re-run ags.model.1 removing the random variable, cage
+
+ags.model.1b<-glmmTMB(ags ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ags.model.1b)
+
+# No more errors! The model ags.model.1b can converge
+# Repeat with ags.model.2
+
+ags.model.2b<-glmmTMB(ags ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(ags.model.2b)
+
+# Compare AIC's from ags.model.1 and ags.model.2
+AIC(ags.model.1b, ags.model.2b)
+```
+ags.model.1b has a lower AIC, and thus is the better fitting model.  
+
+*Male Anogenital sniff*  
+```{r}
+male.ags.model<-glmmTMB(ags ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.ags.model)
+```
+
+**Urine drink**  
+```{r}
+# ud is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+ud.model.1<-glmmTMB(ud ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ud.model.1)
+
+# nbinom2
+ud.model.2<-glmmTMB(ud ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(ud.model.2)
+
+# Once again, we have a model convergence issue
+# Let's re-run ud.model.1 removing the random variable, cage
+
+ud.model.1b<-glmmTMB(ud ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ud.model.1b)
+
+# The model atm.mount.model.1b still cannot converge
+# Remove name this time
+ud.model.1c<-glmmTMB(ud ~ sex + sex*treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ud.model.1c)
+
+# Remove sex*treatment interaction and use treatment
+ud.model.1d<-glmmTMB(ud ~ sex + treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ud.model.1d)
+
+# No NA's and no issues with convergence
+# However, we get z values of 0.000 and Pr(>z) of 1.000
+# We're still having an issue with collinearity
+# Let's try removing sex, since we know only males urine drink
+ud.model.1e<-glmmTMB(ud ~ treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ud.model.1e)
+
+# Much better! Repeat with ud.model.2
+ud.model.2e<-glmmTMB(ud ~ treatment, data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(ud.model.2e)
+
+# Compare AIC's from ud.model.1 and ud.model.2
+AIC(ud.model.1e, ud.model.2e)
+```
+ud.model.2e has a lower AIC, so it is a better fit than ud.model.1e.  
+
+*Male Urine drink*  
+```{r}
+male.ud.model.1<-glmmTMB(ud ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.ud.model.1)
+
+# Remove cage
+male.ud.model.2<-glmmTMB(ud ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.ud.model.2)
+
+# Remove name
+male.ud.model.3<-glmmTMB(ud ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.ud.model.3)
+
+# Remove interaction
+male.ud.model.4<-glmmTMB(ud ~ treatment + contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.ud.model.4)
+```
+
+**Mount attempt**  
+```{r}
+# atm.mount is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+atm.mount.model.1<-glmmTMB(atm.mount ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(atm.mount.model.1)
+
+# nbinom2
+atm.mount.model.2<-glmmTMB(atm.mount ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(atm.mount.model.2)
+
+# Once again, we have a model convergence issue
+# Let's re-run ud.model.1 removing the random variable, cage
+
+atm.mount.model.1b<-glmmTMB(atm.mount ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(atm.mount.model.1b)
+
+# The model atm.mount.model.1b still cannot converge
+# Remove name this time
+atm.mount.model.1c<-glmmTMB(atm.mount ~ sex + sex*treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(atm.mount.model.1c)
+
+# Remove sex*treatment interaction and use treatment
+atm.mount.model.1d<-glmmTMB(ud ~ sex + treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(atm.mount.model.1d)
+
+# No NA's and no issues with convergence
+# However, we get z values of 0.000 and Pr(>z) of 1.000
+# We're still having an issue with collinearity
+# Let's try removing sex, since we know only males really attempt to mate
+atm.mount.model.1e<-glmmTMB(atm.mount ~ treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(atm.mount.model.1e)
+
+# Much better! Repeat with atm.mount.model.2
+atm.mount.model.2e<-glmmTMB(atm.mount ~ treatment, data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(atm.mount.model.2e)
+
+# Compare AIC's from atm.mount.model.1 and atm.mount.model.2
+AIC(atm.mount.model.1e, atm.mount.model.2e)
+```
+Both models have the same AIC, so atm.mount.model.1e and atm.mount.model.2e fit the same.  
+
+*Male Attempt to mount*  
+```{r}
+male.atm.model.1<-glmmTMB(atm.mount ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.atm.model.1)
+
+# Remove cage
+male.atm.model.2<-glmmTMB(atm.mount ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.atm.model.2)
+
+# Remove name
+male.atm.model.3<-glmmTMB(atm.mount ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.atm.model.3)
+
+# Remove interaction
+male.atm.model.4<-glmmTMB(atm.mount ~ treatment + contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.atm.model.4)
+
+# Remove treatment
+male.atm.model.5<-glmmTMB(atm.mount ~ treatment, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.atm.model.5)
+
+# No model convergence was achieved
+```
+
+**Defecate**  
+```{r}
+# defecate is a negative binomial-distributed response variable that can be zero
+# therefore family should be set to negative binomial
+
+# nbinom1
+defecate.model.1<-glmmTMB(defecate ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(defecate.model.1)
+
+# nbinom2
+defecate.model.2<-glmmTMB(defecate ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(defecate.model.2)
+
+# Once again, we have a model convergence issue
+# Let's re-run defecate.model.1 removing the random variable, cage
+
+defecate.model.1b<-glmmTMB(defecate ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(defecate.model.1b)
+
+# The model atm.mount.model.1b still cannot converge
+# Remove name this time
+defecate.model.1c<-glmmTMB(defecate ~ sex + sex*treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(defecate.model.1c)
+
+# Much better! Repeat with atm.mount.model.2
+defecate.model.2c<-glmmTMB(defecate ~ sex + sex*treatment, data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(defecate.model.2c)
+
+# Compare AIC's from atm.mount.model.1 and atm.mount.model.2
+AIC(defecate.model.1c, defecate.model.2c)
+```
+defecate.model.1c has a slightly lower AIC than defecate.model.2c, so it is a better fit.    
+
+*Male Defecate*  
+```{r}
+male.defecate.model.1<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.defecate.model.1)
+
+# Remove cage
+male.defecate.model.2<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.defecate.model.2)
+
+# Remove name
+male.defecate.model.3<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.defecate.model.3)
+
+# Remove interaction
+male.defecate.model.4<-glmmTMB(defecate ~ treatment + contraceptive.status, data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(male.defecate.model.4)
+```
+
+*Female Defecate*  
+```{r}
+female.defecate.model.1<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name) + (1|cage), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.defecate.model.1)
+
+# Remove cage
+female.defecate.model.2<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status + (1|name), data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.defecate.model.2)
+
+# Remove name
+female.defecate.model.3<-glmmTMB(defecate ~ treatment + contraceptive.status + treatment*contraceptive.status, data=df.female, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(female.defecate.model.3)
+```
+
+*Close Proximity*  
+
+Since close proximity is expected to be the same for males and females scored in any given trial, we can model the effect of treatment on close proximity using only one sex's data.  
+
+```{r}
+# nbinom1
+prx.01.rounded.model.1<-glmmTMB(prx.01.rounded ~ treatment + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(prx.01.rounded.model.1)
+
+# nbinom2
+prx.01.rounded.model.2<-glmmTMB(prx.01.rounded ~ treatment + (1|name) + (1|cage), data=df.male, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(prx.01.rounded.model.2)
+
+# Compare AIC's from prx.01.rounded.model.1 and prx.01.rounded.model.2
+AIC(prx.01.rounded.model.1, prx.01.rounded.model.2)
+```
+
+*Hinde's Index*  
+
+```{r}
+# hindes.index is a normally-distributed response variable
+
+hindes.index.model.1<-glmmTMB(hindes.index ~ treatment + (1|name) + (1|cage), data=df.male, ziformula=~1, family=gaussian())
+
+summary(hindes.index.model.1)
+
+# sexMale z value of 0.000 indicates colinearity
+# Remove sex and only examine treatment
+
+hindes.index.model.1b<-glmmTMB(hindes.index ~ treatment + (1|name) + (1|cage), data=df.male, ziformula=~1, family=gaussian())
+
+summary(hindes.index.model.1b)
+```
