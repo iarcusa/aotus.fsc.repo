@@ -34,7 +34,7 @@ library(glmmTMB)    # glmmTMB for generating mixed effect linear models
 
 ```{r}
 # Set working directory
-setwd("~/Desktop/aotus.2024")
+setwd("~/Desktop/aotus.fsc.repo")
 
 # Import raw experiment data
 raw.df<-read.csv("chemical.mateguarding.data.csv", header = TRUE)
@@ -104,12 +104,26 @@ hindes.index<-df$hindes.index
 
 ```{r}
 # To ensure that the model output compares the significance of treatment to the
-# control, we have to specify the reference category
+# control, we have to specify the reference category for overall data set
 df$treatment <- factor(df$treatment, levels = c("Saline.Control", "Female.Urine", "Male.Urine"))
 df$treatment <- relevel(df$treatment, ref = "Saline.Control")
 
 df$contraceptive.status <- factor(df$contraceptive.status, levels = c("Contraception", "None", "Vasectomized"))
 df$contraceptive.status <- relevel(df$contraceptive.status, ref = "None")
+
+# For female-only data set
+df.female$treatment <- factor(df.female$treatment, levels = c("Saline.Control", "Female.Urine", "Male.Urine"))
+df.female$treatment <- relevel(df.female$treatment, ref = "Saline.Control")
+
+df.female$contraceptive.status <- factor(df.female$contraceptive.status, levels = c("Contraception", "None", "Vasectomized"))
+df.female$contraceptive.status <- relevel(df.female$contraceptive.status, ref = "None")
+
+# For male-only data set 
+df.male$treatment <- factor(df.male$treatment, levels = c("Saline.Control", "Female.Urine", "Male.Urine"))
+df.male$treatment <- relevel(df.male$treatment, ref = "Saline.Control")
+
+df.male$contraceptive.status <- factor(df.male$contraceptive.status, levels = c("Contraception", "None", "Vasectomized"))
+df.male$contraceptive.status <- relevel(df.male$contraceptive.status, ref = "None")
 ```
 
 Many of our response behaviors are negative binomial-distributed response variables that can be zero. Therefore the family argument should be set to negative binomial (see https://glmmtmb.github.io/glmmTMB/articles/glmmTMB.html for more info). Defining the family argument as negative binomial comes with two options: nbinom1 or nbinom2 with a log link. nbinom1 is better for when the mean and variance have a linear relationship. nbinom2 is better for when variance is a quadratic function of the mean. To determine the best fit, both versions will be used. Then, the AIC values from both models will be compared.  
