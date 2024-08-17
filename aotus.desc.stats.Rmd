@@ -135,6 +135,33 @@ median(df.none.vas$chirp.rounded)
 range(df.none.vas$chirp.rounded)
 ```
 
+*Anogenital Sniff*  
+```{r}
+# Male median
+median(df.male$ags)
+
+# Male range
+range(df.male$ags)
+
+# Female median
+median(df.female$ags)
+
+# Female range
+range(df.female$ags)
+
+# Male vas median
+median(df.vas$ags)
+
+# Male vas range
+range(df.vas$ags)
+
+# Male non.vas median
+median(df.none.vas$ags)
+
+# Male non.vas range
+range(df.none.vas$ags)
+```
+
 *Urine*  
 ```{r}
 # Male median
