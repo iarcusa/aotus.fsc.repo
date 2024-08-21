@@ -1,0 +1,296 @@
+---
+title: "aotus.subc.sm.locations"
+author: "Isabel Arcusa"
+date: "2024-07-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this document is to generate generalized linear mixed models for subcaudal scent marking locations recorded in the Aotus 2021 experiment.  
+
+This script will model of fixed (sex and treatment) and random (name and cage) effects that predict how likely owl monkeys used their subcaudal scent glands to mark various features in their habitat: perches, food trays, nest boxes, and walls.  
+
+Each response variable will be modeled following these steps:  
+1) Define the distribution for the response behavior  
+2) Use glmmTMB() to create generalized linear mixed model  
+3) Compare model variations for best fit  
+
+```{r}
+# First, we must install necessary packages
+library(dplyr)    # for data frame manipulation
+library(ggplot2)  # for data visualization
+library(glmmTMB)  # to run models
+library(fitdistrplus) # for fitting distributions
+```
+
+```{r}
+# Set working directory and load data
+# Set working directory
+setwd("~/Desktop/aotus.fsc.repo")
+
+# Import raw experiment data
+df<-read.csv("scentmarking.location.data.csv", header = TRUE)
+
+# Verify that the data frame looks as it should
+head(df)
+```
+
+**Perches**  
+```{r}
+# Step 1. Identify distribution of subc.sm.perch
+# Histogram data
+perch<-df$subc.sm.perch
+hist(perch)
+```
+Subcaudal scent marking on perches is right-skewed.  
+
+```{r}
+# Make a Q-Q plot 
+ggplot(df, aes(sample = perch)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Perch against Normal Distribution", x = "Theoretical Quantiles", y = "Perch Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot confirms that the distribution of subcaudal scent marking on perches is not normal.  
+
+```{r}
+# Shapiro-Wilk test of normality
+shapiro.test(perch)
+```
+The Shapiro-Wilk test rejects the null hypothesis that the perch data is normally distributed.  
+
+```{r}
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(perch, "norm")
+fit.pois<-fitdist(perch, "pois")
+fit.neg.binom<-fitdist(perch, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The negative binomial distribution yielded the lowest AIC value. Therefore we can proceed with modeling subc.sm.perch as a negative binomial-distributed response.  
+
+```{r}
+# Step 2. Create GLMM
+# Make the models using glmmTMB package
+# name and cage are random effects
+# sex and treatment are fixed effect
+
+# Defining the family argument as negative binomial comes with two options:
+# nbinom1 or nbinom2 with a log link 
+# nbinom1 is better for when the mean and variance have a linear relationship
+# nbinom2 is better for when variance is a quadratic function of the mean
+# To determine the best fit, both versions will be used
+# Then, the AIC values from both models will be compared
+
+# nbinom1
+perch.model.1<-glmmTMB(perch ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(perch.model.1)
+
+# nbinom2
+perch.model.2<-glmmTMB(perch ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(perch.model.2)
+
+# Compare AIC's from perch.model.1 and perch.model.2
+AIC(perch.model.1, perch.model.2)
+```
+perch.model.1 has a lower AIC and is therefore a better fit model than perch.model.2.  
+
+**Food trays**  
+```{r}
+# Step 1. Identify distribution of subc.sm.perch
+# Histogram data
+ft<-df$subc.sm.ft
+hist(ft)
+```
+Subcaudal scent marking on the food tray is right-skewed.  
+
+```{r}
+# Make a Q-Q plot 
+ggplot(df, aes(sample = ft)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Ft against Normal Distribution", x = "Theoretical Quantiles", y = "Ft Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot confirms that the distribution of subcaudal scent marking on food trays is not normal.  
+
+```{r}
+# Shapiro-Wilk test of normality
+shapiro.test(ft)
+```
+The Shapiro-Wilk test rejects the null hypothesis that the food tray data is normally distributed.  
+
+```{r}
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(ft, "norm")
+fit.pois<-fitdist(ft, "pois")
+fit.neg.binom<-fitdist(ft, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The negative binomial distribution yielded the lowest AIC value. Therefore we can proceed with modeling subc.sm.ft as a negative binomial-distributed response.  
+
+```{r}
+# Step 2. Create GLMM
+# Make the models using glmmTMB package
+
+# nbinom1
+ft.model.1<-glmmTMB(ft ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(ft.model.1)
+
+# nbinom2
+ft.model.2<-glmmTMB(ft ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(ft.model.2)
+
+# Compare AIC's from ft.model.1 and ft.model.2
+AIC(ft.model.1, ft.model.2)
+```
+perch.model.2 has a lower AIC and is therefore a better fit model than perch.model.1.  
+
+**Nest boxes**  
+```{r}
+# Step 1. Identify distribution of subc.sm.perch
+# Histogram data
+nb<-df$subc.sm.nb
+hist(nb)
+```
+Subcaudal scent marking on nest boxes is right-skewed.  
+
+```{r}
+# Make a Q-Q plot 
+ggplot(df, aes(sample = nb)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Nb against Normal Distribution", x = "Theoretical Quantiles", y = "Nb Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot confirms that the distribution of subcaudal scent marking on nest boxes is not normal.  
+
+```{r}
+# Shapiro-Wilk test of normality
+shapiro.test(nb)
+```
+The Shapiro-Wilk test rejects the null hypothesis that the nest box data is normally distributed.  
+
+```{r}
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(nb, "norm")
+fit.pois<-fitdist(nb, "pois")
+fit.neg.binom<-fitdist(nb, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The negative binomial distribution yielded the lowest AIC value. Therefore we can proceed with modeling subc.sm.nb as a negative binomial-distributed response.  
+
+```{r}
+# Step 2. Create GLMM
+
+# nbinom1
+nb.model.1<-glmmTMB(nb ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(nb.model.1)
+
+# nbinom2
+nb.model.2<-glmmTMB(nb ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(nb.model.2)
+
+# Compare AIC's from nb.model.1 and nb.model.2
+AIC(nb.model.1, nb.model.2)
+```
+nb.model.1 has a lower AIC and is therefore a better fit model than nb.model.2.  
+
+**Walls**  
+```{r}
+# Step 1. Identify distribution of subc.sm.wall
+# Histogram data
+wall<-df$subc.sm.wall
+hist(wall)
+```
+Subcaudal scent marking on walls is right-skewed.  
+
+```{r}
+# Make a Q-Q plot 
+ggplot(df, aes(sample = wall)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot of Wall against Normal Distribution", x = "Theoretical Quantiles", y = "Wall Sample Quantiles") +
+  theme_minimal()
+```
+The Q-Q plot confirms that the distribution of subcaudal scent marking on walls is not normal.  
+
+```{r}
+# Shapiro-Wilk test of normality
+shapiro.test(wall)
+```
+The Shapiro-Wilk test rejects the null hypothesis that the wall data is normally distributed.  
+
+```{r}
+# Fit different distributions and perform goodness-of-fit tests
+fit.norm<-fitdist(wall, "norm")
+fit.pois<-fitdist(wall, "pois")
+fit.neg.binom<-fitdist(wall, "nbinom")
+
+# Compare AIC values of different models
+fit.norm$aic
+fit.pois$aic
+fit.neg.binom$aic
+```
+The negative binomial distribution yielded the lowest AIC value. Therefore we can proceed with modeling subc.sm.wall as a negative binomial-distributed response.  
+
+```{r}
+# Step 2. Create GLMM
+
+# nbinom1
+wall.model.1<-glmmTMB(wall ~ sex + sex*treatment + (1|name) + (1|cage), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(wall.model.1)
+
+# wall.model.1 has trouble converging
+# Let's try removing random variables until it can converge
+# Remove cage
+wall.model.1b<-glmmTMB(wall ~ sex + sex*treatment + (1|name), data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(wall.model.1b)
+
+# Remove name
+wall.model.1c<-glmmTMB(wall ~ sex + sex*treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(wall.model.1c)
+
+# Remove sex*treatment
+wall.model.1d<-glmmTMB(wall ~ sex + treatment, data=df, ziformula=~1, family=nbinom1(link = "log"))
+
+summary(wall.model.1d)
+
+# wall.model.1d is the model that works best, but it still has a false convergence
+# subc.sm.wall was only observed twice
+# It is possible that there is not enough data to properly model this
+# We'll proceed anyway for the sake of thoroughness, but likely won't keep these
+
+# nbinom2
+wall.model.2d<-glmmTMB(wall ~ sex + treatment, data=df, ziformula=~1, family=nbinom2(link = "log"))
+
+summary(wall.model.2d)
+
+# Compare AIC's from wall.model.1 and wall.model.2
+AIC(wall.model.1d, wall.model.2d)
+```
+wall.model.2 has a lower AIC and is therefore a better fit model than wall.model.1.  
