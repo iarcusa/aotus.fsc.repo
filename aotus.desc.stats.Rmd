@@ -372,7 +372,7 @@ male.median.prx.01.counts <- df.male %>%
 # Print the result
 print(male.median.prx.01.counts)
 
-# Range prx.01 counts for females
+# Range prx.01 counts for males
 male.range.prx.01.counts <- df.male %>%
   group_by(treatment) %>%
   summarize(range.prx.01.count = range(prx.01))
